@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 "hello"
+"goodbye"
 ```
 
 ```{r}
