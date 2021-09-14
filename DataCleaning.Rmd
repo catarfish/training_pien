@@ -1,0 +1,66 @@
+---
+title: "DataCleaning"
+author: "Catarina Pien"
+date: "9/14/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages
+```{r, message = FALSE}
+library(tidyr)
+library(dplyr)
+```
+
+# Data Sources
+
+Read data in from the [KNB](https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1)
+
+```{r}
+catch_original <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1")
+```
+
+# Clean and reshape data
+
+* remove unnecessary columns
+
+```{r}
+glimpse(catch_original)
+catch_data <- catch_original %>% 
+  select(Region:Chum)
+```
+
+* check column types
+```{r}
+catch_clean <- catch_data %>% 
+  mutate(Chinook = as.integer(Chinook))
+```
+
+Why was Chinook labeled as "character"? 
+```{r}
+i <- which(is.na(catch_clean$Chinook))
+catch_original[i,]
+```
+
+Replace the "I" with "1" and make "Chinook" integer
+```{r}
+catch_clean <- catch_data %>%
+  mutate(Chinook = if_else(Chinook == "I", "1", Chinook)) %>%
+  mutate(Chinook = as.integer(Chinook))
+
+glimpse(catch_clean)
+```
+
+* reshape data
+```{r}
+# catch_long <- catch_clean %>%
+  # pivot_longer(names_from = , values_from = )
+```
+
+
+# Join to Regions Definitions
