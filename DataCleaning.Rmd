@@ -15,14 +15,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message = FALSE}
 library(tidyr)
 library(dplyr)
+library(ggplot2)
 ```
 
 # Data Sources
 
-Read data in from the [KNB](https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1)
-
+Read data in from the [KNB](https://knb.ecoinformatics.org/view/df35b.304.2)
 ```{r}
 catch_original <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1")
+region_original <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.303.1")
 ```
 
 # Clean and reshape data
@@ -33,12 +34,19 @@ catch_original <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/d
 glimpse(catch_original)
 catch_data <- catch_original %>% 
   select(Region:Chum)
+
+glimpse(region_original)
+region_data <- region_original %>%
+  select(code,mgmtArea)
 ```
 
 * check column types
 ```{r}
 catch_clean <- catch_data %>% 
   mutate(Chinook = as.integer(Chinook))
+
+region_clean <- region_data %>% 
+  rename(Region = code)
 ```
 
 Why was Chinook labeled as "character"? 
@@ -58,9 +66,46 @@ glimpse(catch_clean)
 
 * reshape data
 ```{r}
-# catch_long <- catch_clean %>%
-  # pivot_longer(names_from = , values_from = )
+catch_long <- catch_clean %>%
+  pivot_longer(cols = Chinook:Chum, names_to = "species", values_to = "catchThousands")
 ```
 
+```{r}
+mean_region <- catch_long %>%
+  group_by(Region) %>%
+  summarize(catch_mean = mean(catchThousands))
+
+sum_year <- catch_long %>%
+  group_by(Year) %>%
+  summarize(catch_sum = sum(catchThousands),.groups = "drop")
+```
+
+play with filter and make a plot
+```{r}
+glimpse(catch_long)
+head(catch_long)
+filtered <- filter(catch_long, Year > 1900 & Year < 1910)
+ggplot(catch_long, aes(x = Year, y = catchThousands)) + geom_col(aes(fill = species))
+```
 
 # Join to Regions Definitions
+```{r}
+# Forcing them to merge without changing name
+catch_regionsAlt <- left_join(catch_long, region_original, by = c("Region" = "code"))
+catch_regions <- left_join(catch_long, region_clean)
+```
+
+# Try out separate and unite
+
+```{r}
+cities_df <- data.frame(city = c("Juneau AK", 
+                                 "Sitka AK", 
+                                 "Anchorage AK"))
+
+separated <- cities_df %>% 
+  separate(city, c("city", "state"), " ")
+
+united <- separated %>%
+  unite(city, state, sep= "-")
+```
+
