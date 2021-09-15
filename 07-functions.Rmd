@@ -1,0 +1,101 @@
+---
+title: "07-functions"
+author: "Catarina Pien"
+date: "9/15/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Functions tutorial
+
+## Set up some test data
+
+```{r load-data}
+airtemps <- c(212, 30.3, 78, 32)
+
+celsius1 <- (airtemps[1]-32)*5/9
+celsius2 <- (airtemps[2]-32)*5/9
+celsius3 <- (airtemps[3]-32)*5/9
+celsius4 <- (airtemps[4]-32)*5/9
+```
+
+## Create function for converting fahrenheit to celsius
+```{r create function}
+F_to_C <- function(F) {
+  celsius <- (F-32) * 5/9
+  return(celsius)
+}
+```
+
+## Test function
+```{r test function}
+celsius5 <- F_to_C(airtemps[1])
+celsius5 == celsius1
+celsius_array <- F_to_C(airtemps)
+```
+
+Create function for converting celsius to fahrenheit and test
+```{r}
+C_to_F <- function(C) {
+  fahrenheit <- C * 9/5 + 32
+  return(fahrenheit)
+}
+
+fahrenheit <- C_to_F(celsius_array)
+fahrenheit1 <- C_to_F(celsius_array[1])
+fahrenheit == airtemps
+```
+
+Create function to return multiple values in a data frame
+```{r}
+convertTemps <- function(F) {
+  celsius <- (F-32) * 5/9
+  kelvin <- celsius + 273.15
+  return(list(fahrenheit = F, celsius = celsius, kelvin = kelvin))
+}
+
+temps_df <- data.frame(convertTemps(seq(-100, 100, 10)))
+```
+
+Create custom theme
+```{r}
+custom_theme <- function(title_size = 12, base_size = 9, legendside = "right") {
+  ggplot2::theme(
+    axis.ticks = ggplot2::element_blank(),
+    text = ggplot2::element_text(family = 'Helvetica', color = 'gray30', size = base_size),
+    axis.title.x = ggplot2::element_text(title_size),
+    axis.title.y = ggplot2::element_text(title_size),
+    legend.position = legendside
+  )
+}
+```
+
+Use function to create a graph
+```{r}
+library(ggplot2)
+
+ggplot(temps_df, mapping = aes(x = fahrenheit, y = celsius, color = kelvin)) + geom_point() + 
+  custom_theme(15, 13, "left")
+```
+
+aes_string or using formula to pass for customizing the variables that are being plotted
+```{r}
+scatterplot <- function(df, point_size = 2, font_size=9) {
+  ggplot(df, mapping=aes(x=fahrenheit, y=celsius, color=kelvin)) +
+    geom_point(size=point_size) +
+    custom_theme(font_size)
+}
+
+scatterplot(temps_df, 3, 16)
+```
+
+## Make a package
+```{r}
+
+```
+
