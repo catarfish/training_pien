@@ -100,4 +100,5 @@ scatterplot(temps_df, 3, 16)
 
 ```
 #Christina is making edits
+# Hi Christina and pup!
 
