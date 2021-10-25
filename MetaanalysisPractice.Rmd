@@ -1,0 +1,153 @@
+---
+title: "Metaanalysis practice"
+author: "Catarina Pien"
+date: "9/17/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+### Useful functions
+escalc measurement argument
+MD for the raw mean difference
+SMD for standardized mean difference
+SMDH standardized mean difference with heteroscedastic populatin variances in the two groups
+ROM for log transformed ratio of means
+
+
+## Bronchoconstriction
+
+
+
+### Prisma  
+
+```{r}
+library(PRISMAstatement)
+prisma(found = 2482,
+       found_other = 0,
+       no_dupes = 1841, 
+       screened = 1841, 
+       screen_exclusions = 313, 
+       full_text = 313,
+       full_text_exclusions = 251, 
+       qualitative = 61, 
+       quantitative = 31,
+       width = 600, height = 600) #31 = plant richness, and 62 are the ag and grazing papers
+```
+
+
+### Data
+```{r data}
+#libraries
+library(tidyverse)
+#data
+broncho <- read.csv(url("https://figshare.com/ndownloader/files/14460386"))
+```
+
+### Meta
+```{r}
+#metafor approach
+library(metafor)
+library(broom)
+
+data <- escalc(measure = "ROM", m1i= Me, sd1i= Se, n1i=Ne, m2i= Mc, sd2i= Sc, n2i= Nc, data = broncho,  append = TRUE)
+
+# single model with moderators
+# random effects
+# knha when you don't have a lot of obersvations
+# sei to do with weighting each row for study variance
+# mods includes other parameters of interest
+# ~paradigm -1 says it's a factor
+
+rem1 <- rma(yi = yi, sei = vi, method = "ML", mods = ~year, test = "knha", control=list(stepadj=0.5), data = data)
+summary(rem1)
+
+rem2 <- rma(yi = yi, sei = vi, method = "ML",  test = "knha", control=list(stepadj=0.5), data = data)
+summary(rem2)
+
+# res5 <- rma(yi = yi, sei = vi, method = "ML", mods = ~poly(log(species_richness), 2)*paradigm + outcome, test = "knha", control=list(stepadj=0.5), data = data)
+# summary(res5)
+
+r1 <- tidy(rem1)%>%
+  filter(term != "intercept")
+
+knitr::kable(r1)
+anova(rem1)
+anova(rem2)
+anova(rem1, rem2)
+#anova(res4, res5) #anova(reduced, full) to match print output order
+#likelihood ratio test, the results of which we can see in the LRT
+
+#bias
+regtest(rem1) 
+ranktest(rem1)
+funnel(rem1)
+#permutation to assess fit
+#permutest(res5, iter = 100) #success no meaningful decreases in statistical significance
+## Running 100 iterations for approximate permutation test.
+## 
+## Test of Moderators (coefficients 2:11):
+## F(df1 = 10, df2 = 327) = 6.7616, p-val* = 0.0100
+## 
+## Model Results:
+## 
+##                                                  estimate      se     tval   df 
+## intrcpt                                           -0.1386  0.2048  -0.6766  327 
+## poly(log(species_richness), 2)1                    2.3107  1.3517   1.7095  327 
+## poly(log(species_richness), 2)2                  -10.7269  2.1718  -4.9391  327 
+## paradigmpassive                                   -0.2973  0.1343  -2.2142  327 
+## outcomenative communities                          0.6621  0.2080   3.1839  327 
+## outcomepalatable vegetation                        0.7766  0.4513   1.7207  327 
+## outcomerevegetation                                0.8193  0.2996   2.7343  327 
+## outcomeseed production                             1.3194  0.3803   3.4695  327 
+## outcomesoil health                                 0.6229  0.3354   1.8574  327 
+## poly(log(species_richness), 2)1:paradigmpassive   -1.4690  2.6647  -0.5513  327 
+## poly(log(species_richness), 2)2:paradigmpassive   11.8513  2.5214   4.7002  327 
+##                                                   pval*     ci.lb    ci.ub 
+## intrcpt                                          0.8600   -0.5415   0.2644     
+## poly(log(species_richness), 2)1                  0.0600   -0.3484   4.9698   . 
+## poly(log(species_richness), 2)2                  0.0100  -14.9994  -6.4544  ** 
+## paradigmpassive                                  0.0700   -0.5614  -0.0332   . 
+## outcomenative communities                        0.0100    0.2530   1.0712  ** 
+## outcomepalatable vegetation                      0.1100   -0.1113   1.6644     
+## outcomerevegetation                              0.0100    0.2298   1.4087  ** 
+## outcomeseed production                           0.0100    0.5713   2.0675  ** 
+## outcomesoil health                               0.0600   -0.0368   1.2826   . 
+## poly(log(species_richness), 2)1:paradigmpassive  0.5200   -6.7111   3.7731     
+## poly(log(species_richness), 2)2:paradigmpassive  0.0100    6.8910  16.8115  ** 
+## 
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+#more complex spline model for relevant fits
+library(rms)
+res6 <- rma(yi = yi, sei = vi, mods = ~ rcs(species_richness, 3)*paradigm, data = data)
+#summary(res5)
+r6 <- tidy(res6) #%>% 
+  #mutate(term = str_remove(term, "outcome")) %>% 
+  #filter(term != "intercept")
+#r6
+
+#knots from spline model ie thresholds
+knots <- attr(rcs(model.matrix(res6)[,2], 3), "parms")
+knots
+
+```
+
+### Viz
+```{r viz}
+ggplot(data, aes(species_richness, yi, weight = vi, color = paradigm)) +
+  geom_point(size = 2) +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), size = 2, se = TRUE) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "black", size = 1.5) +
+  labs(x = "local plant species richness", y = "lrr of restoration outcomes", color = "") +
+  scale_color_brewer(palette = "Set1") +
+  xlim(0,100) + 
+  ylim(-5, 5) +
+  theme_classic() +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1.5))
+```
