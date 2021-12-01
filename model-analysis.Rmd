@@ -1,0 +1,322 @@
+---
+title: "model-analysis"
+author: "Catarina Pien"
+date: "11/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(daymetr)
+library(dplyr)
+library(ggplot2)
+theme_set(theme_bw())
+options(digits = 3)
+```
+# Model Checking
+## Download data
+```{r}
+mac_daymet_list <- download_daymet(site = "Maricopa Agricultural Center",
+                                   lat = 33.07,
+                                   lon =  -111.97,
+                                   start = 2020,
+                                   end = 2020, 
+                                   internal = TRUE) 
+```
+
+## Calculate summary statistics
+```{r}
+mac_daymet <- mac_daymet_list$data %>% 
+  mutate(tmin = tmin..deg.c., tmax =  tmax..deg.c., tmean = (tmin + tmax)  / 2) %>% 
+  select(doy = yday, tmean, tmax, tmin)
+```
+
+## Plot data
+```{r}
+ggplot(data = mac_daymet, aes(doy, tmean)) +
+  geom_point() + 
+  geom_line()
+```
+The AZMet data format is described here: https://cals.arizona.edu/azmet/raw2003.htm. On that page you can see that these are the columns we are interested in.
+
+```{r}
+mac_azmet <- read.csv('https://cals.arizona.edu/azmet/data/0621rd.txt', header = FALSE) %>% 
+  select(doy = V2, tmean = V6, tmax = V4, tmin = V5)
+```
+
+
+```{r}
+comparison <- mac_daymet %>% 
+  left_join(mac_azmet, by = 'doy', suffix = c('_model', '_obs')) %>% 
+  filter(!is.na(tmean_obs))
+
+head(comparison)
+```
+## Plot difference
+```{r}
+ggplot(data = comparison) + 
+  geom_line(aes(doy, tmean_model)) + 
+  geom_line(aes(doy, tmin_model), color = 'grey') + 
+  geom_line(aes(doy, tmax_model), color = 'grey') +
+  geom_line(aes(doy, tmean_obs), color = 'red') + 
+  geom_line(aes(doy, tmin_obs), color = 'pink') + 
+  geom_line(aes(doy, tmax_obs), color = 'pink') 
+```
+See comparison of model and observed
+
+```{r}
+ggplot(data = comparison) + 
+  geom_point(aes(doy, tmean_model - tmean_obs))
+```
+
+```{r}
+ggplot(data = comparison) + 
+  geom_point(aes(tmean_model, tmean_obs)) +
+  geom_abline(aes(intercept = 0, slope = 1)) +
+  ylim(0, 40) +
+  xlim(0, 40)
+```
+
+## Statistical tests
+```{r}
+mod <- comparison$tmean_model
+obs <- comparison$tmean_obs
+reg <- lm(obs~ mod)
+
+plot(mod, obs, xlab = 'model tmean', ylab = 'obs tmean') +
+  abline(0,1) +
+  abline(coef(reg), lty = 2) 
+
+summary(reg) # just tells us if it's different from 0, but not if it's different from 1
+```
+```{r}
+coef(reg)
+confint(reg) # Does not include 1
+```
+```{r}
+summary(lm(tmin_obs ~ tmin_model, data = comparison))
+summary(lm(tmax_obs ~ tmax_model, data = comparison))
+```
+
+## Most common - RMSE
+
+Standard deviation of residuals
+```{r}
+RMSE <- sqrt(mean((mod - obs)^2))
+RMSE  
+
+# SD of 4 degrees is a pretty big difference, so not a great model
+```
+
+SD as related to the mean
+Want to compare sites that have comparable variability
+```{r}
+## to normalize, divide by sd(obs) 
+NRMSE <- RMSE/sd(obs)
+```
+
+## R^2 correlation coefficient
+```{r}
+cor(mod, obs)
+cor.test(mod, obs)
+```
+
+## Bias - do you over or under predict?
+```{r}
+
+# Over-prediction amount
+mean(mod - obs)
+mean(mod - obs)/mean(obs)
+
+hist(mod-obs)
+
+# Fraction of model is over observation
+sum(mod > obs) / length(obs) #68% of observations
+```
+
+## Ratio of variances
+Does the model capture the observed variance? Often a model will have lower variances
+```{r}
+sd(obs) / sd(mod) 
+```
+## Taylor Diagram
+See how far away it is from 1-1-1 dot
+Could make different diagrams for different models or conditions to compare where it's doing well
+```{r}
+library(plotrix)
+taylor.diagram(ref=obs, model = mod, normalize = TRUE, ref.sd = TRUE) 
+```
+
+
+# Simulation Models
+```{r}
+library(BioCro) #devtools::install_github('ebimodeling/biocro')
+library(lubridate)
+library(ggplot2)
+
+
+data("weather04")
+
+time <- ymd('2004-01-01') + days(weather04$doy-1) + hours(weather04$hour)
+par <- weather04$solarR
+rh <- weather04$RH
+temp <- weather04$DailyTemp.C
+```
+
+```{r}
+A <- c4photo(Qp = par, Tl = temp, RH = rh)$Assim
+
+pairs(data.frame(A, par, temp, rh))
+```
+```{r}
+plot(temp, rh)
+```
+```{r}
+library(ggplot2)
+ggplot()+
+  geom_line(aes(time, A)) +
+  scale_x_datetime(limits = ymd_h(c('2004-05-01 0', '2004-06-01 23')))
+```
+
+```{r}
+ggplot()+
+  geom_line(aes(time, rh)) +
+  scale_x_datetime(limits = ymd_h(c('2004-05-01 0', '2004-06-01 23')))
+```
+Does it matter about matching up two variables by time or can you do mean?
+question: is f(mean(X)) = mean(f(X))? --  No, only in a linear function
+
+```{r}
+testQp <- 11:20*100 # light
+testTl <- 21:30 # temp
+testRH <- 21:30/50 # humidity
+A1 <- c4photo(Qp = mean(testQp),
+              Tl = mean(testTl),
+              RH = mean(testRH))
+A2 <- lapply(c4photo(Qp = testQp, Tl = testTl, RH = testRH), mean)
+
+dplyr::bind_rows(A1 = A1, A2 = A2)
+```
+
+
+## Model Sensitivity
+```{r}
+meanQp <- mean(par)
+meanTl <- mean(temp)
+meanRH <- mean(rh)
+plot(1:100/100, c4photo(Qp = rep(meanQp, 100),
+                        Tl = rep(meanTl, 100),
+                        RH = 1:100/100)$Assim,
+     type = 'l', ylab = 'Assim', xlab = 'RH')
+```
+
+```{r}
+plot(1:100/4, c4photo(Qp = rep(meanQp, 100),
+                      Tl = 1:100/4,
+                      RH = rep(meanRH, 100))$Assim,
+     type = 'l', ylab = 'Assim', xlab = 'RH')
+```
+
+
+## Propagate Errors
+```{r}
+set.seed(100)
+
+n <- 1000
+vmax <- rnorm(n, 45, 2)
+Rd   <- rnorm(n, 1, 0.10)
+b1   <- rnorm(n, 4, 1)
+```
+
+
+```{r}
+x <- 25:75
+ggplot() +
+  geom_histogram(aes(vmax, y = ..density..), proability = TRUE) +
+  geom_line(aes(x, dnorm(x, 45, 2)))
+```
+```{r}
+x <- 1:200/100
+ggplot() +
+  geom_histogram(aes(Rd, y = ..density..), proability = TRUE) +
+  geom_line(aes(x, dnorm(x, 1, 0.1)))
+```
+
+Next, we are going to propagate the parameter variance to see how much of an effect it has on the model output variance:
+```{r}
+### sample given time series of met
+A <- matrix(nrow = length(time), ncol = 1000)
+for(i in 1:1000){
+  A[,i] <- c4photo(Qp = par, Tl = temp, RH = rh, vmax = vmax[i], Rd = Rd[i], b1=b1[i])$Assim
+}
+
+# take a look at the matrix .. 
+# image(A, xlab = 'time', ylab = 'sample')
+## shows an annual cycle of photosynthesis         
+median <- which.min(abs(quantile(colMeans(A), 0.50)-colMeans(A)))
+ucl    <- which.min(abs(quantile(colMeans(A), 0.975)-colMeans(A)))
+lcl    <- which.min(abs(quantile(colMeans(A), 0.025)-colMeans(A)))
+
+ggplot() +
+#  geom_smooth(aes(time, A))+
+  geom_line(aes(time, A[,median])) +
+  geom_line(aes(time, y = A[,lcl]), linetype = 2) +
+  geom_line(aes(time, y = A[,ucl]), linetype = 2) +
+  scale_x_datetime(limits = ymd_h(c('2004-05-01 0', '2004-05-07 23')))
+```
+
+
+How much is each parameter contributing to uncertainty?
+* Basically ANOVA
+* See biggest impact is vmax
+```{r}
+a_total <- colMeans(A)
+
+summary(aov(a_total ~ vmax + Rd + b1))
+```
+Propagate met and Use met as a variable, sample over variation within the hour
+```{r}
+### sample over met variability
+
+A2 <- Gs <- Ci <- Qp <- Tl <- RH <- vector(length = 1000)
+for(i in 1:1000){
+  day <- sample(120:240, size = 1)
+  hour <- sample(10:16, size = 1)
+  j <- day * 24 + hour
+  Qp[i] <- par[j]
+  Tl[i] <- temp[j]
+  RH[i] <- rh[j]
+  res <- c4photo(Qp = Qp[i], Tl = Tl[i], RH = RH[i], vmax = vmax[i], Rd = Rd[i], b1=b1[i])
+  A2[i] <- res$Assim
+  Gs[i] <- res$Gs
+  Ci[i] <- res$Ci
+}
+
+hist(A2)
+```
+
+```{r}
+### sample over met variability
+
+A2 <- Gs <- Ci <- Qp <- Tl <- RH <- vector(length = 1000)
+for(i in 1:1000){
+  day <- sample(120:240, size = 1)
+  hour <- sample(10:16, size = 1)
+  j <- day * 24 + hour
+  Qp[i] <- par[j]
+  Tl[i] <- temp[j]
+  RH[i] <- rh[j]
+  res <- c4photo(Qp = Qp[i], Tl = Tl[i], RH = RH[i], vmax = vmax[i], Rd = Rd[i], b1=b1[i])
+  A2[i] <- res$Assim
+  Gs[i] <- res$Gs
+  Ci[i] <- res$Ci
+}
+
+hist(A2)
+```
+

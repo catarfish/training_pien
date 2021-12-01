@@ -1,0 +1,61 @@
+---
+title: "data-access"
+author: "Catarina Pien"
+date: "11/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(pins)
+```
+
+## Download local version using pins package
+
+* Not too smart about versioning for updates to the same URL
+* verify=TRUE will check if the copy you have is the same as cached version
+```{r}
+
+sites_edi <- 'https://portal.edirepository.org/nis/dataviewer?packageid=edi.233.2&entityid=6a82451e84be1fe82c9821f30ffc2d7d'
+delta_sites_edi <- pins::pin(sites_edi)
+delta_sites <- readr::read_csv(delta_sites_edi, show_col_types = FALSE)
+head(delta_sites)
+```
+
+## Resolving data with contentid
+```{r}
+library(contentid)
+
+delta_catch_edi <- 'https://portal.edirepository.org/nis/dataviewer?packageid=edi.233.2&entityid=015e494911cf35c90089ced5a3127334'
+delta_taxa_edi <- 'https://portal.edirepository.org/nis/dataviewer?packageid=edi.233.2&entityid=0532048e856d4bd07deea11583b893dd'
+delta_effort_edi <- 'https://portal.edirepository.org/nis/dataviewer?packageid=edi.233.2&entityid=ace1ef25f940866865d24109b7250955'
+delta_sites_edi <- 'https://portal.edirepository.org/nis/dataviewer?packageid=edi.233.2&entityid=6a82451e84be1fe82c9821f30ffc2d7d'
+
+# Store hash values - downloads from web, puts on local disk and creates contentid
+delta_catch_id <- store(delta_catch_edi)
+delta_taxa_id <- store(delta_taxa_edi)
+delta_effort_id <- store(delta_effort_edi)
+delta_sites_id <- store(delta_sites_edi)
+
+
+# Where is the contentID stored? Can use this to read in data.
+retrieve(delta_catch_id)
+delta_catch <- readr::read_csv(retrieve(delta_catch_id), show_col_types = FALSE)
+
+# resolve looks at local cache and remote repos and returns location. Need to know hash first. 
+delta_catch_file <- contentid::resolve(delta_catch_id, store = TRUE)
+```
+
+## Store a local file
+```{r}
+# Store a local file
+mac_daymet <- system.file("training_pien", "mac_daymet.csv", package = "contentid")
+id <- store(mac_daymet)
+mac <- retrieve(id)
+co2 <- read.table(vostok, col.names = c("depth", "age_ice", "age_air", "co2"), skip = 21)
+head(co2)
+```
+

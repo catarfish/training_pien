@@ -1,0 +1,37 @@
+---
+title: "eml-authoring"
+author: "Catarina Pien"
+date: "11/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Compose a simple document
+```{r}
+library(EML)
+me <- list(givenName = "Catarina", surName = "Pien")
+
+me <- eml$individualName(givenName = "Catarina", surName = "Pien")
+
+```
+
+# Create a list of all elements needed
+```{r}
+doc <- list(
+  packageId = "dataset-1",
+  system = "local",
+  dataset = eml$dataset(title = "A minimal valid EML example",
+                        shortName = "Shorter title",
+                        creator = eml$creator(individualName = me),
+                        contact = eml$contact(individualName = me))
+)
+
+doc
+
+eml_validate(doc)
+write_eml(doc, "simple_example.xml")
+```
+

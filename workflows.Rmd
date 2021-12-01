@@ -1,0 +1,48 @@
+---
+title: "Workflows"
+author: "Catarina Pien"
+date: "11/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+load_data <- function() {
+    hash <- "hash://sha256/1473de800f3c5577da077507fb006be816a9194ddd417b1b98836be92eaea49d"
+    delta_taxa_file <- contentid::resolve(hash)
+    delta_taxa <- readr::read_csv(delta_taxa_file, show_col_types = FALSE)
+    print("Data loading complete.")
+    return(delta_taxa)
+}
+
+clean_data <- function(delta_taxa) {
+    delta_taxa_cleaned <- delta_taxa %>%
+    mutate(Values = 1:nrow(delta_taxa)) %>%
+      group_by(Order, Family) %>%
+      summarize(Count = sum(Values))
+    print("Data cleaning not implemented yet.")
+  return(delta_taxa_cleaned)
+}
+
+plot_data <- function(df, x, y) {
+    #ggplot(df) + geom_point(mapping = aes_string(x = .data[[x]], y = .data[[y]]))
+    print("Plotting not implemented yet.")
+    
+}
+
+run_workflow <- function() {
+    delta_taxa <- load_data()
+    delta_taxa_cleaned <- clean_data(delta_taxa)
+    plot_data(delta_taxa_cleaned, x = "Family", y = "Count")
+    print("Workflow run completed.")
+}
+
+run_workflow()
+```
+

@@ -1,0 +1,15 @@
+---
+title: "MissingData"
+author: "Catarina Pien"
+date: "10/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+```
+

@@ -1,0 +1,90 @@
+---
+title: "parallel"
+author: "Catarina Pien"
+date: "11/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+If multiple computations that don't depend on previous, candidate for parallel
+```{r}
+x <- iris[which(iris[,5] != "setosa"), c(1,5)]
+trials <- 10000
+res <- data.frame()
+system.time({
+  trial <- 1
+  while(trial <= trials) {
+    ind <- sample(100, 100, replace=TRUE)
+    result1 <- glm(x[ind,2]~x[ind,1], family=binomial(logit))
+    r <- coefficients(result1)
+    res <- rbind(res, r)
+    trial <- trial + 1
+  }
+})
+```
+
+
+Use lapply 
+```{r}
+x <- iris[which(iris[,5] != "setosa"), c(1,5)]
+trials <- seq(1, 10000)
+boot_fx <- function(trial) {
+  ind <- sample(100, 100, replace=TRUE)
+  result1 <- glm(x[ind,2]~x[ind,1], family=binomial(logit))
+  r <- coefficients(result1)
+  res <- rbind(data.frame(), r)
+}
+system.time({
+  results <- lapply(trials, boot_fx)
+})
+```
+
+Run in parallel
+```{r}
+library(parallel)
+library(MASS)
+# how many cores are on this machine?
+numCores <- detectCores()
+```
+
+# Identical to above, but will run on multiple processors
+```{r}
+system.time({
+  results <- mclapply(trials, boot_fx, mc.cores = numCores)
+})
+
+# elapsed time - actually spent in the computation
+# user - sum each cpu
+# if elapsed and user time the same, parallel isn't working
+```
+
+# foreach and #doParallel
+* Less customizable
+* Just do something that takes a while
+```{r}
+for(i in 1:3) {
+  print(sqrt(i))
+}
+
+library(foreach)
+# list of results
+
+foreach (i=1:100) %do% {
+  sqrt(i)
+}
+
+library(doParallel)
+
+foreach (i=1:100) %dopar% {
+  sqrt(i)
+}
+
+
+comb <- foreach (i=1:100, .combine = rbind) %dopar% {
+  sqrt(i)
+}
+```
+
